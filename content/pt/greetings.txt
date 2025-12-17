@@ -1,1 +1,7 @@
-
+Olá — Hello
+Oi — Hi
+Bom dia — Good morning
+Boa tarde — Good afternoon
+Boa noite — Good evening
+Tudo bem? — How are you?
+Prazer em conhecê-lo(a) — Nice to meet you
