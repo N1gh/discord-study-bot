@@ -3,14 +3,17 @@ import time
 import discord
 from discord.ext import commands
 from pathlib import Path
+from openai import OpenAI
 
 # =========================
-# TOKEN
+# TOKENS
 # =========================
 
 TOKEN = os.getenv("DISCORD_TOKEN")
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+
 if not TOKEN:
-    raise RuntimeError("DISCORD_TOKEN not found in environment variables")
+    raise RuntimeError("DISCORD_TOKEN not found")
 
 # =========================
 # BOT SETUP
@@ -26,17 +29,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # =========================
 
 LAST_INTENT_RESPONSE = {}
-COOLDOWN_SECONDS = 60
-AI_COOLDOWN_SECONDS = 60
 LAST_AI_CALL = {}
 
-now = time.time()
-last = LAST_AI_CALL.get(message.author.id, 0)
-
-if now - last < AI_COOLDOWN_SECONDS:
-    return
-
-LAST_AI_CALL[message.author.id] = now
+INTENT_COOLDOWN = 60
+AI_COOLDOWN = 60
 
 # =========================
 # DIRETÓRIOS
@@ -72,15 +68,35 @@ def detect_intent(text: str):
     text = text.lower()
 
     for intent, rules in INTENT_PATTERNS.items():
-        must_have = rules["must_have"]
-        question_words = rules["question_words"]
-
-        if all(word in text for word in must_have) and any(
-            qw in text for qw in question_words
+        if all(w in text for w in rules["must_have"]) and any(
+            q in text for q in rules["question_words"]
         ):
             return intent
-
     return None
+
+# =========================
+# IA
+# =========================
+
+client = OpenAI(api_key=OPENAI_KEY)
+
+def ask_ai(question: str):
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a Portuguese teacher for English speakers. "
+                    "Explain grammar and usage clearly, with short examples."
+                )
+            },
+            {"role": "user", "content": question}
+        ],
+        temperature=0.4,
+        max_tokens=300
+    )
+    return response.choices[0].message.content
 
 # =========================
 # EVENTS
@@ -95,10 +111,10 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # ✅ Sempre permitir comandos
+    # ✅ sempre processar comandos
     await bot.process_commands(message)
 
-    # 🚫 Não rodar detecção automática em comandos
+    # ❌ não rodar IA/detecção em comandos
     if message.content.startswith("!"):
         return
 
@@ -108,28 +124,40 @@ async def on_message(message):
         return
 
     now = time.time()
-    last_time = LAST_INTENT_RESPONSE.get(message.author.id, 0)
 
-    if now - last_time < COOLDOWN_SECONDS:
+    # =========================
+    # INTENT DETECTION
+    # =========================
+
+    last_intent = LAST_INTENT_RESPONSE.get(message.author.id, 0)
+    if now - last_intent >= INTENT_COOLDOWN:
+        intent = detect_intent(content)
+        if intent:
+            LAST_INTENT_RESPONSE[message.author.id] = now
+            await message.channel.send(
+                f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
+                f"Try: `!explain {intent}`"
+            )
+            return
+
+    # =========================
+    # IA FALLBACK
+    # =========================
+
+    if not OPENAI_KEY:
         return
 
-    intent = detect_intent(content)
-    if intent:
-        LAST_INTENT_RESPONSE[message.author.id] = now
-        await message.channel.send(
-            f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
-            f"Try: `!explain {intent}`"
-        )
-        
-    # 🤖 IA fallback
+    last_ai = LAST_AI_CALL.get(message.author.id, 0)
+    if now - last_ai < AI_COOLDOWN:
+        return
+
+    LAST_AI_CALL[message.author.id] = now
+
     try:
-        ai_response = ask_ai(message.content)
-        await message.channel.send(f"🤖 {ai_response}")
+        answer = ask_ai(message.content)
+        await message.channel.send(f"🤖 {answer}")
     except Exception:
-        await message.channel.send(
-            "⚠️ I'm having trouble answering right now. Try again later."
-        
-        )
+        await message.channel.send("⚠️ I can't answer right now. Try again later.")
 
 # =========================
 # COMMANDS
@@ -138,7 +166,6 @@ async def on_message(message):
 @bot.command()
 async def ask(ctx, *, question: str):
     intent = detect_intent(question)
-
     if intent:
         await ctx.send(
             f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
@@ -146,51 +173,24 @@ async def ask(ctx, *, question: str):
         )
         return
 
-    await ctx.send(
-        "🤖 I don't have a direct explanation for this yet.\n"
-        "Try asking about grammar topics like:\n"
-        "`accentuation`, `ser_vs_estar`, `por_vs_para`"
-    )
+    if OPENAI_KEY:
+        try:
+            answer = ask_ai(question)
+            await ctx.send(f"🤖 {answer}")
+        except Exception:
+            await ctx.send("⚠️ I can't answer right now.")
+    else:
+        await ctx.send("🤖 I don't have an explanation for this yet.")
 
 @bot.command()
 async def explain(ctx, topic: str):
     file_path = EXPLANATIONS_DIR / f"{topic}.txt"
-
     if not file_path.exists():
         await ctx.send("❌ Explanation not found.")
         return
 
     content = file_path.read_text(encoding="utf-8")
     await ctx.send(content[:1900])
-
-# =========================
-# IA
-# =========================
-
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-def ask_ai(question: str):
-    system_prompt = (
-        "You are a Portuguese teacher for English speakers.\n"
-        "Explain grammar, vocabulary, and usage clearly.\n"
-        "Use simple examples.\n"
-        "Avoid slang unless asked.\n"
-        "Be concise but helpful."
-    )
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": question}
-        ],
-        temperature=0.4,
-        max_tokens=300
-    )
-
-    return response.choices[0].message.content
 
 # =========================
 # RUN
