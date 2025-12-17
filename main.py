@@ -83,7 +83,9 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    await bot.process_commands(message)
+    # 🚫 Ignorar comandos (evita resposta dupla)
+    if message.content.startswith("!"):
+        return
 
     content = message.content.lower()
 
