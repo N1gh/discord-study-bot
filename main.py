@@ -1,6 +1,7 @@
 import os
 import discord
 from discord.ext import commands
+from pathlib import Path
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
@@ -22,8 +23,6 @@ async def ask(ctx, *, question: str):
         "I'll answer shortly."
     )
 
-from pathlib import Path
-
 CONTENT_DIR = Path("content/pt")
 
 @bot.command()
@@ -32,15 +31,14 @@ async def topics(ctx):
         await ctx.send("❌ Conteúdo não encontrado.")
         return
 
-topics = [f.stem for f in CONTENT_DIR.glob("*.txt")]
+    topics = [f.stem for f in CONTENT_DIR.glob("*.txt")]
 
-if not topics:
-    await ctx.send("⚠️ No topics available yet.")
-    return
+    if not topics:
+        await ctx.send("⚠️ No topics available yet.")
+        return
+
     topic_list = "\n".join(f"- {t}" for t in topics)
-
     await ctx.send(f"📘 Portuguese study topics:\n{topic_list}")
-
 
 @bot.command()
 async def study(ctx, topic: str):
