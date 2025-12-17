@@ -26,6 +26,27 @@ async def ask(ctx, *, question: str):
 CONTENT_DIR = Path("content/pt")
 EXPLANATIONS_DIR = Path("explanations")
 
+INTENT_KEYWORDS = {
+    "accentuation": [
+        "accent", "acento", "acentuação", "ô", "ê", "á", "é", "í", "ó", "ú"
+    ],
+    "por_vs_para": [
+        "por ou para", "por vs para", "por", "para"
+    ],
+    "ser_vs_estar": [
+        "ser ou estar", "ser vs estar", "ser", "estar"
+    ],
+    "verb_tenses": [
+        "tempo verbal", "tense", "past", "present", "future"
+    ],
+    "gender": [
+        "masculine", "feminine", "gender", "gênero"
+    ],
+    "false_cognates": [
+        "false cognate", "false friend", "parece inglês"
+    ]
+}
+
 @bot.command()
 async def topics(ctx):
     if not CONTENT_DIR.exists():
@@ -94,5 +115,23 @@ async def explain(ctx, topic: str):
 
 if not TOKEN:
     raise RuntimeError("DISCORD_TOKEN not found in environment variables")
+    
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    await bot.process_commands(message)
+
+    content = message.content.lower()
+
+    for intent, keywords in INTENT_KEYWORDS.items():
+        for kw in keywords:
+            if kw in content:
+                await message.channel.send(
+                    f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
+                    f"Try: `!explain {intent}`"
+                )
+                return
 
 bot.run(TOKEN)
