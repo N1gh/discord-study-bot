@@ -45,7 +45,12 @@ INTENT_KEYWORDS = {
     ],
     "por_vs_para": [
         "por ou para",
-        "por vs para"
+        "por vs para",
+        "por e não para",
+        "usar por",
+        "usar para",
+        "difference between por and para",
+        "diferença entre por e para"
     ],
     "ser_vs_estar": [
         "ser ou estar",
