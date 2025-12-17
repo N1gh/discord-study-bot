@@ -39,23 +39,19 @@ EXPLANATIONS_DIR = Path("explanations")
 # MAPA DE INTENÇÕES
 # =========================
 
-INTENT_KEYWORDS = {
-    "accentuation": [
-        "accent", "acento", "acentuação"
-    ],
-    "por_vs_para": [
-        "por ou para",
-        "por vs para",
-        "por e não para",
-        "usar por",
-        "usar para",
-        "difference between por and para",
-        "diferença entre por e para"
-    ],
-    "ser_vs_estar": [
-        "ser ou estar",
-        "ser vs estar"
-    ]
+INTENT_PATTERNS = {
+    "por_vs_para": {
+        "must_have": ["por", "para"],
+        "question_words": ["usar", "diferença", "difference", "when", "porque", "por que"]
+    },
+    "ser_vs_estar": {
+        "must_have": ["ser", "estar"],
+        "question_words": ["usar", "difference", "when", "qual", "porque"]
+    },
+    "accentuation": {
+        "must_have": ["acento", "accent", "ô", "ê", "á", "é", "í", "ó", "ú"],
+        "question_words": ["porque", "why", "por que"]
+    }
 }
 
 # =========================
@@ -64,10 +60,16 @@ INTENT_KEYWORDS = {
 
 def detect_intent(text: str):
     text = text.lower()
-    for intent, keywords in INTENT_KEYWORDS.items():
-        for kw in keywords:
-            if kw in text:
-                return intent
+
+    for intent, rules in INTENT_PATTERNS.items():
+        must_have = rules["must_have"]
+        question_words = rules["question_words"]
+
+        if all(word in text for word in must_have) and any(
+            qw in text for qw in question_words
+        ):
+            return intent
+
     return None
 
 # =========================
