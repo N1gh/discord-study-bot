@@ -24,6 +24,7 @@ async def ask(ctx, *, question: str):
     )
 
 CONTENT_DIR = Path("content/pt")
+EXPLANATIONS_DIR = Path("explanations")
 
 @bot.command()
 async def topics(ctx):
@@ -61,6 +62,33 @@ async def study(ctx, topic: str):
             message += f"🔊 {line.replace('Pronunciation:', '').strip()}\n\n"
 
         i += 1
+
+    await ctx.send(message[:1900])
+
+@bot.command()
+async def explain(ctx, topic: str):
+    file_path = EXPLANATIONS_DIR / f"{topic}.txt"
+
+    if not file_path.exists():
+        await ctx.send(
+            "❌ Explanation not found.\n"
+            "Use `!explain accentuation`, `!explain ser_vs_estar`, etc."
+        )
+        return
+
+    raw_lines = file_path.read_text(encoding="utf-8").splitlines()
+
+    message = f"🧠 **Explanation: {topic.replace('_', ' ').title()}**\n\n"
+
+    for line in raw_lines:
+        if not line.strip():
+            message += "\n"
+        elif line.isupper():
+            message += f"📌 **{line}**\n"
+        elif line.startswith("EXAMPLE"):
+            message += f"\n💡 **Example**\n"
+        else:
+            message += f"{line}\n"
 
     await ctx.send(message[:1900])
 
