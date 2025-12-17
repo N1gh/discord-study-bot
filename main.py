@@ -47,10 +47,22 @@ async def study(ctx, topic: str):
         await ctx.send("❌ Topic not found.")
         return
 
-    content = file_path.read_text(encoding="utf-8")
-    await ctx.send(
-        f"📖 **{topic.replace('_', ' ').title()} (Portuguese)**\n\n{content}"
-    )
+    raw_lines = file_path.read_text(encoding="utf-8").splitlines()
+    message = f"📖 **{topic.replace('_', ' ').title()} (Portuguese)**\n\n"
+
+    i = 0
+    while i < len(raw_lines):
+        line = raw_lines[i]
+
+        if "—" in line:
+            pt, en = line.split("—")
+            message += f"🇧🇷 **{pt.strip()}**\n🇺🇸 {en.strip()}\n"
+        elif line.startswith("Pronunciation"):
+            message += f"🔊 {line.replace('Pronunciation:', '').strip()}\n\n"
+
+        i += 1
+
+    await ctx.send(message[:1900])
 
 if not TOKEN:
     raise RuntimeError("DISCORD_TOKEN not found in environment variables")
