@@ -83,7 +83,10 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # 🚫 Ignorar comandos (evita resposta dupla)
+    # ✅ Sempre permitir comandos
+    await bot.process_commands(message)
+
+    # 🚫 Não rodar detecção automática em comandos
     if message.content.startswith("!"):
         return
 
