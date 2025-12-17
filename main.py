@@ -22,8 +22,6 @@ async def ask(ctx, *, question: str):
         "I'll answer shortly."
     )
 
-bot.run(TOKEN)
-
 from pathlib import Path
 
 CONTENT_DIR = Path("content/pt")
@@ -51,3 +49,5 @@ async def study(ctx, topic: str):
     await ctx.send(
         f"📖 **{topic.replace('_', ' ').title()} (Portuguese)**\n\n{content}"
     )
+
+bot.run(TOKEN)
