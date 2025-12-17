@@ -117,6 +117,7 @@ if not TOKEN:
     raise RuntimeError("DISCORD_TOKEN not found in environment variables")
     
 @bot.event
+@bot.event
 async def on_message(message):
     if message.author.bot:
         return
@@ -125,9 +126,30 @@ async def on_message(message):
 
     content = message.content.lower()
 
+    QUESTION_TRIGGERS = (
+        "why", "what", "when", "how",
+        "porque", "por que", "pq", "quando", "como", "qual"
+    )
+
+    is_question = (
+        "?" in content
+        or content.strip().startswith(QUESTION_TRIGGERS)
+    )
+
+    if not is_question:
+        return
+
+    import time
+    now = time.time()
+    last_time = LAST_INTENT_RESPONSE.get(message.author.id, 0)
+
+    if now - last_time < COOLDOWN_SECONDS:
+        return
+
     for intent, keywords in INTENT_KEYWORDS.items():
         for kw in keywords:
             if kw in content:
+                LAST_INTENT_RESPONSE[message.author.id] = now
                 await message.channel.send(
                     f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
                     f"Try: `!explain {intent}`"
