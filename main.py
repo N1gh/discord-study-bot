@@ -5,8 +5,6 @@ from discord.ext import commands
 from pathlib import Path
 from openai import OpenAI
 
-client = OpenAI()
-
 # =========================
 # TOKENS
 # =========================
@@ -35,6 +33,10 @@ LAST_AI_CALL = {}
 
 INTENT_COOLDOWN = 60
 AI_COOLDOWN = 60
+
+# 🧠 CONTEXTO POR USUÁRIO (PASSO 6)
+USER_CONTEXT = {}
+CONTEXT_TIMEOUT = 300  # 5 minutos
 
 # =========================
 # DIRETÓRIOS
@@ -76,23 +78,46 @@ def detect_intent(text: str):
             return intent
     return None
 
+
+def set_user_context(user_id, intent):
+    USER_CONTEXT[user_id] = {
+        "intent": intent,
+        "time": time.time()
+    }
+
+
+def get_user_context(user_id):
+    data = USER_CONTEXT.get(user_id)
+    if not data:
+        return None
+
+    if time.time() - data["time"] > CONTEXT_TIMEOUT:
+        USER_CONTEXT.pop(user_id, None)
+        return None
+
+    return data["intent"]
+
 # =========================
 # IA
 # =========================
 
 client = OpenAI(api_key=OPENAI_KEY)
 
-def ask_ai(question: str):
+def ask_ai(question: str, context: str | None = None):
+    system_prompt = (
+        "You are a Portuguese teacher for English speakers. "
+        "Explain grammar and usage clearly, with short examples."
+    )
+
+    if context:
+        system_prompt += (
+            f" The student is asking about: {context.replace('_', ' ')}."
+        )
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a Portuguese teacher for English speakers. "
-                    "Explain grammar and usage clearly, with short examples."
-                )
-            },
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": question}
         ],
         temperature=0.4,
@@ -136,6 +161,8 @@ async def on_message(message):
         intent = detect_intent(content)
         if intent:
             LAST_INTENT_RESPONSE[message.author.id] = now
+            set_user_context(message.author.id, intent)
+
             await message.channel.send(
                 f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
                 f"Try: `!explain {intent}`"
@@ -143,7 +170,7 @@ async def on_message(message):
             return
 
     # =========================
-    # IA FALLBACK
+    # IA FALLBACK (COM CONTEXTO)
     # =========================
 
     if not OPENAI_KEY:
@@ -155,8 +182,10 @@ async def on_message(message):
 
     LAST_AI_CALL[message.author.id] = now
 
+    context = get_user_context(message.author.id)
+
     try:
-        answer = ask_ai(message.content)
+        answer = ask_ai(message.content, context)
         await message.channel.send(f"🤖 {answer}")
     except Exception:
         await message.channel.send("⚠️ I can't answer right now. Try again later.")
@@ -168,7 +197,9 @@ async def on_message(message):
 @bot.command()
 async def ask(ctx, *, question: str):
     intent = detect_intent(question)
+
     if intent:
+        set_user_context(ctx.author.id, intent)
         await ctx.send(
             f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
             f"Try: `!explain {intent}`"
@@ -176,8 +207,9 @@ async def ask(ctx, *, question: str):
         return
 
     if OPENAI_KEY:
+        context = get_user_context(ctx.author.id)
         try:
-            answer = ask_ai(question)
+            answer = ask_ai(question, context)
             await ctx.send(f"🤖 {answer}")
         except Exception:
             await ctx.send("⚠️ I can't answer right now.")
@@ -192,6 +224,7 @@ async def explain(ctx, topic: str):
         return
 
     content = file_path.read_text(encoding="utf-8")
+    set_user_context(ctx.author.id, topic)
     await ctx.send(content[:1900])
 
 # =========================
