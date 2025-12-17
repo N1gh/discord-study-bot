@@ -22,11 +22,21 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # =========================
-# ESTADO GLOBAL (⚠️ O ERRO ESTAVA AQUI)
+# ESTADO GLOBAL
 # =========================
 
 LAST_INTENT_RESPONSE = {}
 COOLDOWN_SECONDS = 60
+AI_COOLDOWN_SECONDS = 60
+LAST_AI_CALL = {}
+
+now = time.time()
+last = LAST_AI_CALL.get(message.author.id, 0)
+
+if now - last < AI_COOLDOWN_SECONDS:
+    return
+
+LAST_AI_CALL[message.author.id] = now
 
 # =========================
 # DIRETÓRIOS
@@ -110,6 +120,16 @@ async def on_message(message):
             f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
             f"Try: `!explain {intent}`"
         )
+        
+    # 🤖 IA fallback
+    try:
+        ai_response = ask_ai(message.content)
+        await message.channel.send(f"🤖 {ai_response}")
+    except Exception:
+        await message.channel.send(
+            "⚠️ I'm having trouble answering right now. Try again later."
+        
+        )
 
 # =========================
 # COMMANDS
@@ -142,6 +162,35 @@ async def explain(ctx, topic: str):
 
     content = file_path.read_text(encoding="utf-8")
     await ctx.send(content[:1900])
+
+# =========================
+# IA
+# =========================
+
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def ask_ai(question: str):
+    system_prompt = (
+        "You are a Portuguese teacher for English speakers.\n"
+        "Explain grammar, vocabulary, and usage clearly.\n"
+        "Use simple examples.\n"
+        "Avoid slang unless asked.\n"
+        "Be concise but helpful."
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question}
+        ],
+        temperature=0.4,
+        max_tokens=300
+    )
+
+    return response.choices[0].message.content
 
 # =========================
 # RUN
