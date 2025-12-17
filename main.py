@@ -5,6 +5,8 @@ from discord.ext import commands
 from pathlib import Path
 from openai import OpenAI
 
+client = OpenAI()
+
 # =========================
 # TOKENS
 # =========================
