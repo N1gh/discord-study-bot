@@ -117,10 +117,13 @@ async def ask(ctx, *, question: str):
             f"🤔 This looks like a question about **{intent.replace('_', ' ')}**.\n"
             f"Try: `!explain {intent}`"
         )
-    else:
-        await ctx.send(
-            "🤖 I don't have an explanation for this yet."
-        )
+        return
+
+    await ctx.send(
+        "🤖 I don't have a direct explanation for this yet.\n"
+        "Try asking about grammar topics like:\n"
+        "`accentuation`, `ser_vs_estar`, `por_vs_para`"
+    )
 
 @bot.command()
 async def explain(ctx, topic: str):
