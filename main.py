@@ -32,7 +32,11 @@ async def topics(ctx):
         await ctx.send("❌ Conteúdo não encontrado.")
         return
 
-    topics = [f.stem for f in CONTENT_DIR.glob("*.txt")]
+topics = [f.stem for f in CONTENT_DIR.glob("*.txt")]
+
+if not topics:
+    await ctx.send("⚠️ No topics available yet.")
+    return
     topic_list = "\n".join(f"- {t}" for t in topics)
 
     await ctx.send(f"📘 Portuguese study topics:\n{topic_list}")
@@ -49,5 +53,8 @@ async def study(ctx, topic: str):
     await ctx.send(
         f"📖 **{topic.replace('_', ' ').title()} (Portuguese)**\n\n{content}"
     )
+
+if not TOKEN:
+    raise RuntimeError("DISCORD_TOKEN not found in environment variables")
 
 bot.run(TOKEN)
